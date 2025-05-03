@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -11,10 +12,37 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
-import { Mic, Hand, MessageCircle, Video, AlarmClock } from "lucide-react";
+import { 
+  Mic, 
+  Hand, 
+  MessageCircle, 
+  Video, 
+  AlarmClock, 
+  Menu, 
+  X 
+} from "lucide-react";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 
 export function Header() {
   const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+  
+  const navItems = [
+    { icon: Mic, label: "Voice Symptom Checker", route: "/voice-symptom-checker" },
+    { icon: Hand, label: "Gesture Control", route: "/gesture-control" },
+    { icon: MessageCircle, label: "Medical Chat", route: "/medical-chat" },
+    { icon: Video, label: "Video Consultation", route: "/video-consultation" },
+    { icon: AlarmClock, label: "Medicine Reminder", route: "/medicine-reminder" },
+  ];
   
   return (
     <header className="bg-white dark:bg-healthcare-800 shadow-sm py-4 px-6">
@@ -28,71 +56,70 @@ export function Header() {
           <h1 className="text-xl md:text-2xl font-bold text-healthcare-700 dark:text-healthcare-100">
             Medibridge
           </h1>
+          
+          {/* Mobile menu button */}
+          {isMobile && (
+            <Drawer>
+              <DrawerTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-2">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="h-[80vh]">
+                <div className="p-4">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold">Navigation</h2>
+                    <DrawerClose asChild>
+                      <Button variant="ghost" size="icon">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </DrawerClose>
+                  </div>
+                  <nav className="space-y-2">
+                    {navItems.map((item) => (
+                      <Link 
+                        key={item.route}
+                        to={item.route} 
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-healthcare-50 dark:hover:bg-healthcare-700 transition-colors"
+                        onClick={() => setSidebarOpen(false)}
+                      >
+                        <item.icon className="h-5 w-5 text-healthcare-500" />
+                        <span>{item.label}</span>
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
+              </DrawerContent>
+            </Drawer>
+          )}
         </div>
 
-        {!isMobile ? (
-          <NavigationMenu className="flex-1 justify-center">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <Link to="/voice-symptom-checker" className={navigationMenuTriggerStyle()}>
-                  <Mic className="mr-2 h-4 w-4" />
-                  Voice Symptom Checker
+        {/* Desktop sidebar */}
+        {!isMobile && (
+          <div className={`fixed left-0 top-16 h-full bg-white dark:bg-healthcare-800 shadow-lg z-20 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-16'} overflow-hidden`}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute right-2 top-2"
+              onClick={toggleSidebar}
+            >
+              {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </Button>
+            
+            <div className="mt-12 space-y-2 p-2">
+              {navItems.map((item) => (
+                <Link 
+                  key={item.route}
+                  to={item.route} 
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-healthcare-50 dark:hover:bg-healthcare-700 transition-colors"
+                >
+                  <item.icon className="h-5 w-5 text-healthcare-500" />
+                  <span className={`transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+                    {item.label}
+                  </span>
                 </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/gesture-control" className={navigationMenuTriggerStyle()}>
-                  <Hand className="mr-2 h-4 w-4" />
-                  Gesture Control
-                </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/medical-chat" className={navigationMenuTriggerStyle()}>
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Medical Chat
-                </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/video-consultation" className={navigationMenuTriggerStyle()}>
-                  <Video className="mr-2 h-4 w-4" />
-                  Video Consultation
-                </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/medicine-reminder" className={navigationMenuTriggerStyle()}>
-                  <AlarmClock className="mr-2 h-4 w-4" />
-                  Medicine Reminder
-                </Link>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        ) : (
-          <div className="w-full my-2">
-            <NavigationMenu className="w-full">
-              <NavigationMenuList className="flex flex-wrap justify-center gap-2 w-full">
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger>Features</NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <div className="grid w-[300px] gap-2 p-2">
-                      <Link to="/voice-symptom-checker" className="flex items-center gap-2 p-2 rounded-md hover:bg-healthcare-50">
-                        <Mic className="h-4 w-4" /> Voice Symptom Checker
-                      </Link>
-                      <Link to="/gesture-control" className="flex items-center gap-2 p-2 rounded-md hover:bg-healthcare-50">
-                        <Hand className="h-4 w-4" /> Gesture Control
-                      </Link>
-                      <Link to="/medical-chat" className="flex items-center gap-2 p-2 rounded-md hover:bg-healthcare-50">
-                        <MessageCircle className="h-4 w-4" /> Medical Chat
-                      </Link>
-                      <Link to="/video-consultation" className="flex items-center gap-2 p-2 rounded-md hover:bg-healthcare-50">
-                        <Video className="h-4 w-4" /> Video Consultation
-                      </Link>
-                      <Link to="/medicine-reminder" className="flex items-center gap-2 p-2 rounded-md hover:bg-healthcare-50">
-                        <AlarmClock className="h-4 w-4" /> Medicine Reminder
-                      </Link>
-                    </div>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              </NavigationMenuList>
-            </NavigationMenu>
+              ))}
+            </div>
           </div>
         )}
         

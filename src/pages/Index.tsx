@@ -4,15 +4,20 @@ import { Header } from "@/components/Header";
 import { HealthMetrics } from "@/components/HealthMetrics";
 import { RecentActivities } from "@/components/RecentActivities";
 import { EmergencyCall } from "@/components/EmergencyCall";
+import { useState, useEffect } from "react";
 
 const Index = () => {
   const { toast } = useToast();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Adjust main content based on sidebar state for desktop
+  const mainContentClass = !sidebarOpen ? "md:ml-16" : "md:ml-64";
+  
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className={`flex-1 container mx-auto px-4 py-8 transition-all duration-300 ${mainContentClass}`}>
         <section className="mb-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-healthcare-700 dark:text-healthcare-100">
             Your Health Dashboard

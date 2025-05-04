@@ -17,7 +17,8 @@ import {
   Hand, 
   MessageCircle, 
   Video, 
-  AlarmClock, 
+  AlarmClock,
+  Heart,
   Menu, 
   X 
 } from "lucide-react";
@@ -42,6 +43,7 @@ export function Header() {
     { icon: MessageCircle, label: "Medical Chat", route: "/medical-chat" },
     { icon: Video, label: "Video Consultation", route: "/video-consultation" },
     { icon: AlarmClock, label: "Medicine Reminder", route: "/medicine-reminder" },
+    { icon: Heart, label: "Health Fitness", route: "/health-fitness" },
   ];
   
   return (

@@ -11,6 +11,7 @@ import GestureControl from "./pages/GestureControl";
 import MedicalChat from "./pages/MedicalChat";
 import VideoConsultation from "./pages/VideoConsultation";
 import MedicineReminder from "./pages/MedicineReminder";
+import HealthFitness from "./pages/HealthFitness";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/medical-chat" element={<MedicalChat />} />
           <Route path="/video-consultation" element={<VideoConsultation />} />
           <Route path="/medicine-reminder" element={<MedicineReminder />} />
+          <Route path="/health-fitness" element={<HealthFitness />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

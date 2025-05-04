@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { HealthMetrics } from "@/components/HealthMetrics";
 import { RecentActivities } from "@/components/RecentActivities";
 import { EmergencyCall } from "@/components/EmergencyCall";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const Index = () => {
   const { toast } = useToast();

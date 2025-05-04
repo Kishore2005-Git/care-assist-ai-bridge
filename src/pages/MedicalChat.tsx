@@ -3,15 +3,39 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
-import { MessageCircle, Send } from "lucide-react";
-import { useState } from "react";
+import { MessageCircle, Mic, Send, Volume2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/sonner";
 
 interface Message {
   id: number;
   text: string;
   sender: "user" | "ai";
   timestamp: Date;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal?: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  readonly confidence: number;
+  readonly transcript: string;
 }
 
 const MedicalChat = () => {
@@ -24,15 +48,99 @@ const MedicalChat = () => {
     },
   ]);
   const [newMessage, setNewMessage] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("en-US");
   const navigate = useNavigate();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   
-  const handleSendMessage = () => {
-    if (newMessage.trim() === "") return;
+  // Supported languages
+  const languages = [
+    { code: "en-US", name: "English (US)" },
+    { code: "es-ES", name: "Spanish" },
+    { code: "fr-FR", name: "French" },
+    { code: "de-DE", name: "German" },
+    { code: "zh-CN", name: "Chinese" },
+    { code: "hi-IN", name: "Hindi" },
+    { code: "ja-JP", name: "Japanese" },
+  ];
+
+  // Initialize speech recognition
+  useEffect(() => {
+    // Check if browser supports speech recognition
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Your browser does not support speech recognition");
+      return;
+    }
+
+    // Clean up previous recognition instance
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    
+    // Create new recognition instance with selected language
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = false;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = selectedLanguage;
+
+    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join("");
+      setNewMessage(transcript);
+      
+      // If result is final, stop listening and submit message
+      if (event.results[0].isFinal) {
+        if (transcript.trim() !== "") {
+          setTimeout(() => {
+            handleSendMessage(transcript);
+            setIsListening(false);
+          }, 500);
+        }
+      }
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+      toast.error(`Speech recognition error: ${event.error}`);
+    };
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [selectedLanguage]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+  
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      setNewMessage("");
+      recognitionRef.current?.start();
+      setIsListening(true);
+    }
+  };
+  
+  const handleSendMessage = (text: string = newMessage) => {
+    if (text.trim() === "") return;
     
     // Add user message
     const userMessage: Message = {
       id: Date.now(),
-      text: newMessage,
+      text: text,
       sender: "user",
       timestamp: new Date(),
     };
@@ -44,12 +152,15 @@ const MedicalChat = () => {
     setTimeout(() => {
       const aiResponse: Message = {
         id: Date.now() + 1,
-        text: getAIResponse(newMessage),
+        text: getAIResponse(text),
         sender: "ai",
         timestamp: new Date(),
       };
       
       setMessages((prev) => [...prev, aiResponse]);
+      
+      // Read AI response aloud
+      speakText(aiResponse.text);
     }, 1000);
   };
   
@@ -65,6 +176,33 @@ const MedicalChat = () => {
     } else {
       return "I understand your concern. While I can provide general information, I recommend consulting a healthcare professional for personalized medical advice. Is there anything specific you'd like to know more about?";
     }
+  };
+
+  const speakText = (text: string) => {
+    // Check if browser supports speech synthesis
+    if ('speechSynthesis' in window) {
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = selectedLanguage;
+      
+      // Find a voice that matches the language if possible
+      const voices = window.speechSynthesis.getVoices();
+      const matchingVoice = voices.find(voice => voice.lang.startsWith(selectedLanguage.slice(0, 2)));
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+      }
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.error("Your browser does not support text-to-speech");
+    }
+  };
+
+  // Handle speaking individual message
+  const handleSpeakMessage = (text: string) => {
+    speakText(text);
   };
   
   return (
@@ -83,6 +221,20 @@ const MedicalChat = () => {
         <h2 className="text-3xl font-bold mb-6 text-healthcare-700 dark:text-healthcare-100">
           AI Medical Assistant Chat
         </h2>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <select
+            value={selectedLanguage}
+            onChange={(e) => setSelectedLanguage(e.target.value)}
+            className="bg-white dark:bg-healthcare-800 border border-gray-300 dark:border-healthcare-600 rounded px-3 py-1 text-sm"
+          >
+            {languages.map((language) => (
+              <option key={language.code} value={language.code}>
+                {language.name}
+              </option>
+            ))}
+          </select>
+        </div>
         
         <Card className="p-6 flex-1 flex flex-col max-w-3xl w-full mx-auto">
           <div className="flex-1 overflow-y-auto mb-4">
@@ -110,15 +262,28 @@ const MedicalChat = () => {
                       </div>
                     )}
                     <p>{message.text}</p>
-                    <p className="text-xs mt-2 opacity-70">
-                      {message.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-xs opacity-70">
+                        {message.timestamp.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                      {message.sender === "ai" && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleSpeakMessage(message.text)}
+                          className="p-1 h-auto"
+                        >
+                          <Volume2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef} />
             </div>
           </div>
           
@@ -126,13 +291,19 @@ const MedicalChat = () => {
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your health question..."
+              placeholder={`Type your health question in ${languages.find(l => l.code === selectedLanguage)?.name}...`}
               className="flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSendMessage();
               }}
             />
-            <Button onClick={handleSendMessage} className="bg-healthcare-500 hover:bg-healthcare-600">
+            <Button 
+              onClick={toggleListening} 
+              className={`${isListening ? "bg-red-500 hover:bg-red-600" : "bg-healthcare-500 hover:bg-healthcare-600"}`}
+            >
+              <Mic className="h-5 w-5" />
+            </Button>
+            <Button onClick={() => handleSendMessage()} className="bg-healthcare-500 hover:bg-healthcare-600">
               <Send className="h-5 w-5" />
             </Button>
           </div>

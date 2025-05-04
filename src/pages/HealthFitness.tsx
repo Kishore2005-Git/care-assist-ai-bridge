@@ -3,7 +3,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Water, Utensils, Activity } from "lucide-react";
+import { Droplets, Utensils, Activity } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from "react";
 
@@ -85,7 +85,7 @@ const HealthFitness = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xl font-medium">Hydration</CardTitle>
-                <Water className="h-6 w-6 text-healthcare-500" />
+                <Droplets className="h-6 w-6 text-healthcare-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-healthcare-600">{calculateWaterIntake()} L</div>

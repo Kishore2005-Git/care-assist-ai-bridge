@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Header } from "@/components/Header";
 import { AlarmClock, Plus, Trash } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface Medication {
   id: number;
@@ -21,24 +22,7 @@ interface Medication {
 }
 
 const MedicineReminder = () => {
-  const [medications, setMedications] = useState<Medication[]>([
-    {
-      id: 1,
-      name: "Aspirin",
-      dosage: "81mg",
-      frequency: "Daily",
-      time: "08:00",
-      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    },
-    {
-      id: 2,
-      name: "Vitamin D",
-      dosage: "1000 IU",
-      frequency: "Daily",
-      time: "09:00",
-      days: ["Monday", "Wednesday", "Friday"],
-    },
-  ]);
+  const [medications, setMedications] = useState<Medication[]>([]);
   
   const [newMedication, setNewMedication] = useState<Omit<Medication, "id">>({
     name: "",
@@ -49,8 +33,76 @@ const MedicineReminder = () => {
   });
   
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeNotification, setActiveNotification] = useState<Medication | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Load medications from localStorage on component mount
+  useEffect(() => {
+    const storedMedications = localStorage.getItem('medications');
+    if (storedMedications) {
+      setMedications(JSON.parse(storedMedications));
+    }
+  }, []);
+
+  // Save medications to localStorage whenever the medications state changes
+  useEffect(() => {
+    localStorage.setItem('medications', JSON.stringify(medications));
+  }, [medications]);
+  
+  // Check for medication reminders every minute
+  useEffect(() => {
+    const checkReminders = () => {
+      const now = new Date();
+      const currentHours = now.getHours().toString().padStart(2, '0');
+      const currentMinutes = now.getMinutes().toString().padStart(2, '0');
+      const currentTime = `${currentHours}:${currentMinutes}`;
+      
+      // Get current day of week
+      const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const currentDay = daysOfWeek[now.getDay()];
+      
+      medications.forEach(medication => {
+        // Check if the medication should be taken on the current day
+        const shouldTakeMedication = medication.frequency === "Daily" || 
+          (medication.frequency === "Weekly" && medication.days.includes(currentDay));
+        
+        // Check if it's time to take the medication
+        if (shouldTakeMedication && medication.time === currentTime) {
+          // Show notification
+          if (Notification.permission === "granted") {
+            new Notification("Medication Reminder", {
+              body: `Time to take ${medication.name} - ${medication.dosage}`,
+              icon: "/favicon.ico"
+            });
+          }
+          
+          // Show in-app notification
+          setActiveNotification(medication);
+          
+          // Show toast
+          toast({
+            title: "Medication Reminder",
+            description: `Time to take ${medication.name} - ${medication.dosage}`,
+          });
+        }
+      });
+    };
+    
+    // Check for permission to show notifications
+    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+    
+    // Check reminders immediately
+    checkReminders();
+    
+    // Set interval to check reminders every minute
+    const interval = setInterval(checkReminders, 60000);
+    
+    // Clean up interval
+    return () => clearInterval(interval);
+  }, [medications, toast]);
   
   const handleAddMedication = () => {
     // Basic validation
@@ -82,6 +134,11 @@ const MedicineReminder = () => {
       title: "Reminder Added",
       description: `Medication reminder for ${medication.name} has been set.`,
     });
+    
+    // Request notification permission if not already granted
+    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
   };
   
   const handleDeleteMedication = (id: number) => {
@@ -91,6 +148,83 @@ const MedicineReminder = () => {
       description: "The medication reminder has been deleted.",
     });
   };
+  
+  const dismissNotification = () => {
+    setActiveNotification(null);
+  };
+  
+  // Calculate upcoming reminders
+  const getUpcomingReminders = () => {
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+    
+    // Get current day of week
+    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const currentDay = daysOfWeek[now.getDay()];
+    const currentDayIndex = now.getDay();
+    
+    return medications
+      .map(medication => {
+        const [hours, minutes] = medication.time.split(':').map(Number);
+        const timeInMinutes = hours * 60 + minutes;
+        
+        // Calculate time difference in minutes for today
+        let timeDiffMinutes = timeInMinutes - currentTimeInMinutes;
+        let daysFromNow = 0;
+        
+        // If the time has already passed today, calculate for the next occurrence
+        if (medication.frequency === "Daily") {
+          if (timeDiffMinutes < 0) {
+            timeDiffMinutes += 1440; // Add 24 hours in minutes
+            daysFromNow = 1;
+          }
+        } else if (medication.frequency === "Weekly") {
+          // If it's a weekly medication, find the next occurrence day
+          if (medication.days.includes(currentDay) && timeDiffMinutes >= 0) {
+            // If today is one of the medication days and time hasn't passed
+            daysFromNow = 0;
+          } else {
+            // Find the next day this medication should be taken
+            let nextDayFound = false;
+            for (let i = 1; i <= 7; i++) {
+              const nextDayIndex = (currentDayIndex + i) % 7;
+              const nextDay = daysOfWeek[nextDayIndex];
+              if (medication.days.includes(nextDay)) {
+                daysFromNow = i;
+                nextDayFound = true;
+                break;
+              }
+            }
+            
+            if (!nextDayFound) {
+              daysFromNow = 7; // Default to a week if no next day found (shouldn't happen)
+            }
+            
+            // If it's today but time has passed, find next occurrence
+            if (medication.days.includes(currentDay) && timeDiffMinutes < 0) {
+              if (daysFromNow === 7) {
+                timeDiffMinutes += 1440; // Add 24 hours in minutes
+              }
+            }
+          }
+        }
+        
+        const totalMinutesUntil = daysFromNow * 1440 + timeDiffMinutes;
+        
+        return {
+          ...medication,
+          minutesUntil: totalMinutesUntil,
+          daysFromNow: daysFromNow
+        };
+      })
+      .sort((a, b) => a.minutesUntil - b.minutesUntil)
+      .filter(med => med.minutesUntil >= 0)
+      .slice(0, 3); // Get nearest 3 reminders
+  };
+  
+  const upcomingReminders = getUpcomingReminders();
   
   return (
     <div className="flex flex-col min-h-screen">
@@ -108,6 +242,26 @@ const MedicineReminder = () => {
         <h2 className="text-3xl font-bold mb-6 text-healthcare-700 dark:text-healthcare-100">
           Medicine Reminder
         </h2>
+        
+        {activeNotification && (
+          <Alert className="mb-6 bg-healthcare-100 border-healthcare-300 dark:bg-healthcare-800 dark:border-healthcare-600">
+            <AlertTitle className="text-healthcare-800 dark:text-healthcare-100 flex items-center">
+              <AlarmClock className="h-5 w-5 mr-2" />
+              Time to take your medication!
+            </AlertTitle>
+            <AlertDescription className="text-healthcare-700 dark:text-healthcare-200">
+              {activeNotification.name} - {activeNotification.dosage}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={dismissNotification}
+                className="ml-4"
+              >
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         
         <div className="flex justify-between items-center mb-8">
           <p className="text-gray-600 dark:text-gray-300">
@@ -184,6 +338,52 @@ const MedicineReminder = () => {
             </DialogContent>
           </Dialog>
         </div>
+        
+        {/* Upcoming Reminders Section */}
+        {upcomingReminders.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold mb-4 text-healthcare-600 dark:text-healthcare-200">
+              Upcoming Reminders
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {upcomingReminders.map((reminder) => {
+                const timeDisplay = new Date(`2000-01-01T${reminder.time}:00`).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                
+                let timingText = '';
+                if (reminder.daysFromNow === 0) {
+                  timingText = `Today at ${timeDisplay}`;
+                } else if (reminder.daysFromNow === 1) {
+                  timingText = `Tomorrow at ${timeDisplay}`;
+                } else {
+                  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                  const today = new Date().getDay();
+                  const reminderDay = daysOfWeek[(today + reminder.daysFromNow) % 7];
+                  timingText = `${reminderDay} at ${timeDisplay}`;
+                }
+                
+                return (
+                  <Card key={reminder.id} className="bg-healthcare-50 dark:bg-healthcare-800 border-healthcare-100 dark:border-healthcare-700">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-healthcare-700 dark:text-healthcare-100">{reminder.name}</h4>
+                        <span className="text-sm bg-healthcare-100 dark:bg-healthcare-700 px-2 py-1 rounded-full text-healthcare-600 dark:text-healthcare-200">
+                          {reminder.dosage}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-healthcare-500 dark:text-healthcare-300 text-sm">
+                        <AlarmClock className="h-4 w-4 mr-1" />
+                        {timingText}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
         
         {medications.length === 0 ? (
           <Card className="p-8 text-center">

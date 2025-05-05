@@ -158,10 +158,4 @@ const JitsiVideoCall: React.FC<JitsiVideoCallProps> = ({ roomName, onClose }) =>
   );
 };
 
-declare global {
-  interface Window {
-    JitsiMeetExternalAPI: any;
-  }
-}
-
 export default JitsiVideoCall;

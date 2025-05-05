@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,29 +12,6 @@ interface Message {
   text: string;
   sender: "user" | "ai";
   timestamp: Date;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal?: boolean;
-}
-
-interface SpeechRecognitionAlternative {
-  readonly confidence: number;
-  readonly transcript: string;
 }
 
 const MedicalChat = () => {
@@ -79,38 +55,40 @@ const MedicalChat = () => {
     }
     
     // Create new recognition instance with selected language
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = false;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = selectedLanguage;
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognitionAPI) {
+      recognitionRef.current = new SpeechRecognitionAPI();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = selectedLanguage;
 
-    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join("");
-      setNewMessage(transcript);
-      
-      // If result is final, stop listening and submit message
-      if (event.results[0].isFinal) {
-        if (transcript.trim() !== "") {
-          setTimeout(() => {
-            handleSendMessage(transcript);
-            setIsListening(false);
-          }, 500);
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join("");
+        setNewMessage(transcript);
+        
+        // If result is final, stop listening and submit message
+        if (event.results[0].isFinal) {
+          if (transcript.trim() !== "") {
+            setTimeout(() => {
+              handleSendMessage(transcript);
+              setIsListening(false);
+            }, 500);
+          }
         }
-      }
-    };
+      };
 
-    recognitionRef.current.onend = () => {
-      setIsListening(false);
-    };
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
 
-    recognitionRef.current.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsListening(false);
-      toast.error(`Speech recognition error: ${event.error}`);
-    };
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+        toast.error(`Speech recognition error: ${event.error}`);
+      };
+    }
 
     return () => {
       if (recognitionRef.current) {

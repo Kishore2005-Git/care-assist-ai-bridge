@@ -1,14 +1,16 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Header } from "@/components/Header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Video, Calendar, Clock } from "lucide-react";
+import { Video, Calendar, Clock, Loader } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import JitsiVideoCall from "@/components/JitsiVideoCall";
+import { toast } from "@/components/ui/sonner";
 
 const VideoConsultation = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -16,53 +18,69 @@ const VideoConsultation = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
   const [reason, setReason] = useState<string>("");
   const [isInVideoCall, setIsInVideoCall] = useState(false);
+  const [isJoiningCall, setIsJoiningCall] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   
   const handleScheduleConsultation = () => {
     // Basic validation
     if (!selectedDate || !selectedTime || !selectedDoctor || !reason) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all the required fields.",
-        variant: "destructive",
+      toast.error("Missing information", {
+        description: "Please fill in all the required fields."
       });
       return;
     }
     
-    toast({
-      title: "Consultation Scheduled",
-      description: `Your appointment with Dr. ${selectedDoctor} on ${selectedDate} at ${selectedTime} has been confirmed.`,
-    });
+    setIsScheduling(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      toast.success("Consultation Scheduled", {
+        description: `Your appointment with Dr. ${selectedDoctor} on ${selectedDate} at ${selectedTime} has been confirmed.`
+      });
+      setIsScheduling(false);
+      
+      // Clear form fields after successful scheduling
+      setSelectedDate("");
+      setSelectedTime("");
+      setSelectedDoctor("");
+      setReason("");
+    }, 2000);
   };
 
   const handleJoinVideoCall = () => {
+    setIsJoiningCall(true);
+    toast.info("Preparing video call...", {
+      description: "Requesting camera and microphone permissions"
+    });
+    
     // Request camera and microphone permissions
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(() => {
-        // Permissions granted, start the video call
-        setIsInVideoCall(true);
-        toast({
-          title: "Joining Video Call",
-          description: "Connecting to care-assist-room...",
-        });
+        // Permissions granted, start the video call after a short delay
+        setTimeout(() => {
+          setIsJoiningCall(false);
+          setIsInVideoCall(true);
+          toast.success("Connected to video call", {
+            description: "You've joined care-assist-room"
+          });
+        }, 1500);
       })
       .catch((err) => {
         // Permissions denied
         console.error("Media access error:", err);
-        toast({
-          variant: "destructive",
-          title: "Permission Denied",
-          description: "Camera and microphone access is required for video calls.",
+        setIsJoiningCall(false);
+        toast.error("Permission Denied", {
+          description: "Camera and microphone access is required for video calls."
         });
       });
   };
 
   const handleCloseVideoCall = () => {
     setIsInVideoCall(false);
-    toast({
-      title: "Call Ended",
-      description: "You have left the video call.",
+    toast.info("Call Ended", {
+      description: "You have left the video call."
     });
   };
   
@@ -94,9 +112,19 @@ const VideoConsultation = () => {
               <Button
                 className="bg-healthcare-500 hover:bg-healthcare-600 text-white p-4 text-lg gap-3"
                 onClick={handleJoinVideoCall}
+                disabled={isJoiningCall}
               >
-                <Video className="h-5 w-5" />
-                Join Video Call Now
+                {isJoiningCall ? (
+                  <>
+                    <Loader className="h-5 w-5 animate-spin" />
+                    Connecting to Video Call...
+                  </>
+                ) : (
+                  <>
+                    <Video className="h-5 w-5" />
+                    Join Video Call Now
+                  </>
+                )}
               </Button>
             </div>
             
@@ -110,7 +138,10 @@ const VideoConsultation = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="doctor">Select Doctor</Label>
-                    <Select onValueChange={(value) => setSelectedDoctor(value)}>
+                    <Select 
+                      value={selectedDoctor} 
+                      onValueChange={(value) => setSelectedDoctor(value)}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Choose a specialist" />
                       </SelectTrigger>
@@ -136,7 +167,7 @@ const VideoConsultation = () => {
                   
                   <div>
                     <Label htmlFor="time">Select Time</Label>
-                    <Select onValueChange={(value) => setSelectedTime(value)}>
+                    <Select value={selectedTime} onValueChange={(value) => setSelectedTime(value)}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Choose a time slot" />
                       </SelectTrigger>
@@ -165,8 +196,16 @@ const VideoConsultation = () => {
                   <Button 
                     className="w-full mt-4 bg-healthcare-500 hover:bg-healthcare-600"
                     onClick={handleScheduleConsultation}
+                    disabled={isScheduling}
                   >
-                    Schedule Consultation
+                    {isScheduling ? (
+                      <>
+                        <Loader className="h-5 w-5 mr-2 animate-spin" />
+                        Scheduling...
+                      </>
+                    ) : (
+                      "Schedule Consultation"
+                    )}
                   </Button>
                 </div>
               </Card>

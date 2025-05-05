@@ -6,19 +6,28 @@ import { RecentActivities } from "@/components/RecentActivities";
 import { EmergencyCall } from "@/components/EmergencyCall";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Video } from "lucide-react";
+import { Video, Loader } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/sonner";
 
 const Index = () => {
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isVideoCallLoading, setIsVideoCallLoading] = useState(false);
   const navigate = useNavigate();
 
   // Adjust main content based on sidebar state for desktop
   const mainContentClass = !sidebarOpen ? "md:ml-16" : "md:ml-64";
   
   const handleVideoCallClick = () => {
-    navigate("/video-consultation");
+    setIsVideoCallLoading(true);
+    toast.info("Connecting to video consultation...");
+    
+    // Simulate a small delay before navigating
+    setTimeout(() => {
+      setIsVideoCallLoading(false);
+      navigate("/video-consultation");
+    }, 1500);
   };
   
   return (
@@ -38,9 +47,19 @@ const Index = () => {
             <Button 
               className="bg-healthcare-500 hover:bg-healthcare-600 gap-2"
               onClick={handleVideoCallClick}
+              disabled={isVideoCallLoading}
             >
-              <Video className="h-5 w-5" />
-              Video Call with Doctor
+              {isVideoCallLoading ? (
+                <>
+                  <Loader className="h-5 w-5 animate-spin" />
+                  Connecting to Doctor...
+                </>
+              ) : (
+                <>
+                  <Video className="h-5 w-5" />
+                  Video Call with Doctor
+                </>
+              )}
             </Button>
           </div>
         </section>

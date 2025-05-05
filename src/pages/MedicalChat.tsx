@@ -1,8 +1,9 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
-import { MessageCircle, Mic, Send, Volume2 } from "lucide-react";
+import { MessageCircle, Mic, Send, Volume2, Loader } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
@@ -26,6 +27,8 @@ const MedicalChat = () => {
   const [newMessage, setNewMessage] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en-US");
+  const [isSending, setIsSending] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -107,6 +110,9 @@ const MedicalChat = () => {
       recognitionRef.current?.stop();
     } else {
       setNewMessage("");
+      toast.info("Listening...", {
+        description: `Speak in ${languages.find(l => l.code === selectedLanguage)?.name}`
+      });
       recognitionRef.current?.start();
       setIsListening(true);
     }
@@ -114,6 +120,8 @@ const MedicalChat = () => {
   
   const handleSendMessage = (text: string = newMessage) => {
     if (text.trim() === "") return;
+    
+    setIsSending(true);
     
     // Add user message
     const userMessage: Message = {
@@ -136,6 +144,7 @@ const MedicalChat = () => {
       };
       
       setMessages((prev) => [...prev, aiResponse]);
+      setIsSending(false);
       
       // Read AI response aloud
       speakText(aiResponse.text);
@@ -159,6 +168,7 @@ const MedicalChat = () => {
   const speakText = (text: string) => {
     // Check if browser supports speech synthesis
     if ('speechSynthesis' in window) {
+      setIsSpeaking(true);
       // Stop any ongoing speech
       window.speechSynthesis.cancel();
       
@@ -171,6 +181,10 @@ const MedicalChat = () => {
       if (matchingVoice) {
         utterance.voice = matchingVoice;
       }
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
       
       window.speechSynthesis.speak(utterance);
     } else {
@@ -253,8 +267,13 @@ const MedicalChat = () => {
                           size="sm" 
                           onClick={() => handleSpeakMessage(message.text)}
                           className="p-1 h-auto"
+                          disabled={isSpeaking}
                         >
-                          <Volume2 className="h-3 w-3" />
+                          {isSpeaking ? (
+                            <Loader className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Volume2 className="h-3 w-3" />
+                          )}
                         </Button>
                       )}
                     </div>
@@ -272,17 +291,31 @@ const MedicalChat = () => {
               placeholder={`Type your health question in ${languages.find(l => l.code === selectedLanguage)?.name}...`}
               className="flex-1"
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSendMessage();
+                if (e.key === "Enter" && !isSending) handleSendMessage();
               }}
+              disabled={isSending}
             />
             <Button 
               onClick={toggleListening} 
               className={`${isListening ? "bg-red-500 hover:bg-red-600" : "bg-healthcare-500 hover:bg-healthcare-600"}`}
+              disabled={isSending}
             >
-              <Mic className="h-5 w-5" />
+              {isListening ? (
+                <Loader className="h-5 w-5 animate-spin" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
             </Button>
-            <Button onClick={() => handleSendMessage()} className="bg-healthcare-500 hover:bg-healthcare-600">
-              <Send className="h-5 w-5" />
+            <Button 
+              onClick={() => handleSendMessage()} 
+              className="bg-healthcare-500 hover:bg-healthcare-600"
+              disabled={isSending || newMessage.trim() === ""}
+            >
+              {isSending ? (
+                <Loader className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
             </Button>
           </div>
           

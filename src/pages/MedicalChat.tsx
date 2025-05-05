@@ -3,46 +3,79 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
-import { MessageCircle, Mic, Send, Volume2, Loader } from "lucide-react";
+import { MessageCircle, Mic, Send, Volume2, Loader, Globe } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { 
+  detectLanguage,
+  translateText,
+  getUserLanguage,
+  setUserLanguage,
+  supportedLanguages 
+} from "@/utils/translationService";
 
 interface Message {
   id: number;
   text: string;
+  originalText?: string;
   sender: "user" | "ai";
   timestamp: Date;
 }
 
 const MedicalChat = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "Hello! I'm your AI medical assistant. How can I help you today?",
-      sender: "ai",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("en-US");
+  const [selectedLanguage, setSelectedLanguage] = useState(getUserLanguage());
   const [isSending, setIsSending] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [autoTranslate, setAutoTranslate] = useState(true);
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   
-  // Supported languages
-  const languages = [
-    { code: "en-US", name: "English (US)" },
-    { code: "es-ES", name: "Spanish" },
-    { code: "fr-FR", name: "French" },
-    { code: "de-DE", name: "German" },
-    { code: "zh-CN", name: "Chinese" },
-    { code: "hi-IN", name: "Hindi" },
-    { code: "ja-JP", name: "Japanese" },
-  ];
+  // Initialize with translated welcome message
+  useEffect(() => {
+    const initializeChat = async () => {
+      const welcomeMessage = "Hello! I'm your AI medical assistant. How can I help you today?";
+      
+      // Only translate if not English and auto-translate is on
+      let translatedText = welcomeMessage;
+      if (selectedLanguage !== 'en' && autoTranslate) {
+        try {
+          setIsTranslating(true);
+          translatedText = await translateText({ 
+            text: welcomeMessage, 
+            targetLanguage: selectedLanguage,
+            sourceLanguage: 'en'
+          });
+        } catch (error) {
+          console.error('Translation error:', error);
+        } finally {
+          setIsTranslating(false);
+        }
+      }
+      
+      setMessages([{
+        id: 1,
+        text: translatedText,
+        originalText: welcomeMessage,
+        sender: "ai",
+        timestamp: new Date(),
+      }]);
+    };
+    
+    initializeChat();
+  }, [selectedLanguage]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -63,7 +96,12 @@ const MedicalChat = () => {
       recognitionRef.current = new SpeechRecognitionAPI();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = selectedLanguage;
+      recognitionRef.current.lang = selectedLanguage === 'zh' ? 'zh-CN' : 
+                                    selectedLanguage === 'ja' ? 'ja-JP' :
+                                    selectedLanguage === 'ko' ? 'ko-KR' :
+                                    selectedLanguage === 'ar' ? 'ar-SA' :
+                                    selectedLanguage === 'hi' ? 'hi-IN' :
+                                    `${selectedLanguage}-${selectedLanguage.toUpperCase()}`;
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = Array.from(event.results)
@@ -111,44 +149,104 @@ const MedicalChat = () => {
     } else {
       setNewMessage("");
       toast.info("Listening...", {
-        description: `Speak in ${languages.find(l => l.code === selectedLanguage)?.name}`
+        description: `Speak in ${supportedLanguages.find(l => l.code === selectedLanguage)?.name}`
       });
       recognitionRef.current?.start();
       setIsListening(true);
     }
   };
   
-  const handleSendMessage = (text: string = newMessage) => {
+  const handleSendMessage = async (text: string = newMessage) => {
     if (text.trim() === "") return;
     
     setIsSending(true);
     
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now(),
-      text: text,
-      sender: "user",
-      timestamp: new Date(),
-    };
+    let detectedLanguage = selectedLanguage;
+    let userMessageText = text;
     
-    setMessages((prev) => [...prev, userMessage]);
-    setNewMessage("");
-    
-    // Simulate AI response after a short delay
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: Date.now() + 1,
-        text: getAIResponse(text),
-        sender: "ai",
+    try {
+      // Auto-detect language if enabled and different from selected language
+      detectedLanguage = await detectLanguage(text);
+      
+      // Add user message
+      const userMessage: Message = {
+        id: Date.now(),
+        text: text,
+        sender: "user",
         timestamp: new Date(),
       };
       
-      setMessages((prev) => [...prev, aiResponse]);
-      setIsSending(false);
+      setMessages((prev) => [...prev, userMessage]);
+      setNewMessage("");
       
-      // Read AI response aloud
-      speakText(aiResponse.text);
-    }, 1000);
+      // If detected language is different from English and we need translation for AI
+      let messageForAI = text;
+      if (detectedLanguage !== 'en') {
+        try {
+          messageForAI = await translateText({
+            text: text,
+            targetLanguage: 'en',
+            sourceLanguage: detectedLanguage
+          });
+        } catch (err) {
+          console.error('Error translating user message for AI:', err);
+          // Continue with original text if translation fails
+        }
+      }
+      
+      // Simulate AI response after a short delay
+      setTimeout(async () => {
+        const aiResponseText = getAIResponse(messageForAI);
+        
+        // Translate AI response if needed
+        let translatedResponse = aiResponseText;
+        if (detectedLanguage !== 'en' && autoTranslate) {
+          try {
+            translatedResponse = await translateText({
+              text: aiResponseText,
+              targetLanguage: detectedLanguage,
+              sourceLanguage: 'en'
+            });
+          } catch (err) {
+            console.error('Error translating AI response:', err);
+            // Continue with original response if translation fails
+            translatedResponse = aiResponseText;
+          }
+        }
+        
+        const aiResponse: Message = {
+          id: Date.now() + 1,
+          text: autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText,
+          originalText: autoTranslate && detectedLanguage !== 'en' ? aiResponseText : undefined,
+          sender: "ai",
+          timestamp: new Date(),
+        };
+        
+        setMessages((prev) => [...prev, aiResponse]);
+        setIsSending(false);
+        
+        // Read AI response aloud
+        speakText(autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText);
+        
+        // If we detected a different language than selected, offer to switch
+        if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
+          const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
+          toast({
+            title: "Language detected",
+            description: `Would you like to switch to ${detectedLangName}?`,
+            action: {
+              label: "Switch",
+              onClick: () => handleLanguageChange(detectedLanguage),
+            },
+          });
+        }
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error in message handling:', err);
+      setIsSending(false);
+      toast.error('There was an error processing your message.');
+    }
   };
   
   const getAIResponse = (userMessage: string): string => {
@@ -173,11 +271,16 @@ const MedicalChat = () => {
       window.speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = selectedLanguage;
+      utterance.lang = selectedLanguage === 'zh' ? 'zh-CN' : 
+                        selectedLanguage === 'ja' ? 'ja-JP' :
+                        selectedLanguage === 'ko' ? 'ko-KR' :
+                        selectedLanguage === 'ar' ? 'ar-SA' :
+                        selectedLanguage === 'hi' ? 'hi-IN' :
+                        `${selectedLanguage}-${selectedLanguage.toUpperCase()}`;
       
       // Find a voice that matches the language if possible
       const voices = window.speechSynthesis.getVoices();
-      const matchingVoice = voices.find(voice => voice.lang.startsWith(selectedLanguage.slice(0, 2)));
+      const matchingVoice = voices.find(voice => voice.lang.startsWith(selectedLanguage));
       if (matchingVoice) {
         utterance.voice = matchingVoice;
       }
@@ -195,6 +298,43 @@ const MedicalChat = () => {
   // Handle speaking individual message
   const handleSpeakMessage = (text: string) => {
     speakText(text);
+  };
+
+  // Handle language change
+  const handleLanguageChange = (language: string) => {
+    setSelectedLanguage(language);
+    setUserLanguage(language);
+    
+    // If we're currently listening, restart with the new language
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      
+      // Wait a moment before restarting with the new language
+      setTimeout(() => {
+        if (recognitionRef.current) {
+          recognitionRef.current.lang = language === 'zh' ? 'zh-CN' : 
+                                      language === 'ja' ? 'ja-JP' :
+                                      language === 'ko' ? 'ko-KR' : 
+                                      language === 'ar' ? 'ar-SA' :
+                                      language === 'hi' ? 'hi-IN' :
+                                      `${language}-${language.toUpperCase()}`;
+          recognitionRef.current.start();
+        }
+      }, 200);
+    }
+    
+    toast.success(`Language changed to ${supportedLanguages.find(l => l.code === language)?.name}`);
+  };
+
+  // Toggle auto-translate
+  const toggleAutoTranslate = () => {
+    setAutoTranslate(!autoTranslate);
+    toast.info(autoTranslate ? 
+      "Auto-translation disabled. Responses will be in English." : 
+      "Auto-translation enabled. Responses will be translated."
+    );
   };
   
   return (
@@ -214,18 +354,38 @@ const MedicalChat = () => {
           AI Medical Assistant Chat
         </h2>
 
-        <div className="mb-4 flex flex-wrap gap-2">
-          <select
-            value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value)}
-            className="bg-white dark:bg-healthcare-800 border border-gray-300 dark:border-healthcare-600 rounded px-3 py-1 text-sm"
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-healthcare-500" />
+            <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Language" />
+              </SelectTrigger>
+              <SelectContent>
+                {supportedLanguages.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    {language.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={toggleAutoTranslate}
+            className={autoTranslate ? "bg-healthcare-100 dark:bg-healthcare-800" : ""}
           >
-            {languages.map((language) => (
-              <option key={language.code} value={language.code}>
-                {language.name}
-              </option>
-            ))}
-          </select>
+            {autoTranslate ? "Auto-Translate: ON" : "Auto-Translate: OFF"}
+          </Button>
+          
+          {isTranslating && (
+            <div className="flex items-center text-sm text-healthcare-500">
+              <Loader className="h-4 w-4 mr-1 animate-spin" />
+              Translating...
+            </div>
+          )}
         </div>
         
         <Card className="p-6 flex-1 flex flex-col max-w-3xl w-full mx-auto">
@@ -254,6 +414,15 @@ const MedicalChat = () => {
                       </div>
                     )}
                     <p>{message.text}</p>
+                    
+                    {/* Show original text if translated */}
+                    {message.originalText && autoTranslate && (
+                      <div className="mt-2 text-xs opacity-70 border-t pt-1">
+                        <p className="font-semibold">Original:</p>
+                        <p>{message.originalText}</p>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center mt-2">
                       <p className="text-xs opacity-70">
                         {message.timestamp.toLocaleTimeString([], {
@@ -288,7 +457,7 @@ const MedicalChat = () => {
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Type your health question in ${languages.find(l => l.code === selectedLanguage)?.name}...`}
+              placeholder={`Type your health question in ${supportedLanguages.find(l => l.code === selectedLanguage)?.name}...`}
               className="flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !isSending) handleSendMessage();

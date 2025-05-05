@@ -6,9 +6,10 @@ import { RecentActivities } from "@/components/RecentActivities";
 import { EmergencyCall } from "@/components/EmergencyCall";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Video, Loader } from "lucide-react";
+import { Video, Loader, Globe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
+import { ApiKeySettings } from "@/components/ApiKeySettings";
 
 const Index = () => {
   const { toast: uiToast } = useToast();
@@ -35,6 +36,10 @@ const Index = () => {
       <Header />
       
       <main className={`flex-1 container mx-auto px-4 py-8 transition-all duration-300 ${mainContentClass}`}>
+        <div className="flex justify-end mb-4">
+          <ApiKeySettings />
+        </div>
+        
         <section className="mb-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-healthcare-700 dark:text-healthcare-100">
             Your Health Dashboard
@@ -43,7 +48,7 @@ const Index = () => {
             Monitor your vital signs and manage your healthcare needs in one place.
           </p>
           
-          <div className="mt-6 flex justify-center">
+          <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Button 
               className="bg-healthcare-500 hover:bg-healthcare-600 gap-2"
               onClick={handleVideoCallClick}
@@ -60,6 +65,14 @@ const Index = () => {
                   Video Call with Doctor
                 </>
               )}
+            </Button>
+            
+            <Button 
+              className="bg-healthcare-600 hover:bg-healthcare-700 gap-2"
+              onClick={() => navigate("/medical-chat")}
+            >
+              <Globe className="h-5 w-5" />
+              Multilingual Medical Assistant
             </Button>
           </div>
         </section>

@@ -5,13 +5,21 @@ import { HealthMetrics } from "@/components/HealthMetrics";
 import { RecentActivities } from "@/components/RecentActivities";
 import { EmergencyCall } from "@/components/EmergencyCall";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Video } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Adjust main content based on sidebar state for desktop
   const mainContentClass = !sidebarOpen ? "md:ml-16" : "md:ml-64";
+  
+  const handleVideoCallClick = () => {
+    navigate("/video-consultation");
+  };
   
   return (
     <div className="flex flex-col min-h-screen">
@@ -25,6 +33,16 @@ const Index = () => {
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Monitor your vital signs and manage your healthcare needs in one place.
           </p>
+          
+          <div className="mt-6 flex justify-center">
+            <Button 
+              className="bg-healthcare-500 hover:bg-healthcare-600 gap-2"
+              onClick={handleVideoCallClick}
+            >
+              <Video className="h-5 w-5" />
+              Video Call with Doctor
+            </Button>
+          </div>
         </section>
         
         <section>

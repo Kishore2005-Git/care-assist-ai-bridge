@@ -4,6 +4,7 @@
 interface Window {
   SpeechRecognition?: typeof SpeechRecognition;
   webkitSpeechRecognition?: typeof SpeechRecognition;
+  JitsiMeetExternalAPI?: any;
 }
 
 interface SpeechRecognitionEvent extends Event {

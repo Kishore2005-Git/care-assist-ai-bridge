@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
   supportedLanguages,
   getOpenAIResponse
 } from "@/utils/translationService";
+import { ApiKeySettings } from "@/components/ApiKeySettings";
 
 interface Message {
   id: number;
@@ -81,7 +83,10 @@ const MedicalChat = () => {
   useEffect(() => {
     // Check if browser supports speech recognition
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast.error("Your browser does not support speech recognition");
+      toast("Your browser does not support speech recognition", {
+        description: "Please try using a different browser like Chrome.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -127,7 +132,9 @@ const MedicalChat = () => {
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         setIsListening(false);
-        toast.error(`Speech recognition error: ${event.error}`);
+        toast(`Speech recognition error: ${event.error}`, {
+          variant: "destructive"
+        });
       };
     }
 
@@ -148,7 +155,7 @@ const MedicalChat = () => {
       recognitionRef.current?.stop();
     } else {
       setNewMessage("");
-      toast.info("Listening...");
+      toast("Listening...");
       recognitionRef.current?.start();
       setIsListening(true);
     }
@@ -181,11 +188,13 @@ const MedicalChat = () => {
       let messageForAI = text;
       if (detectedLanguage !== 'en') {
         try {
+          setIsTranslating(true);
           messageForAI = await translateText({
             text: text,
             targetLanguage: 'en',
             sourceLanguage: detectedLanguage
           });
+          setIsTranslating(false);
         } catch (err) {
           console.error('Error translating user message for AI:', err);
           // Continue with original text if translation fails
@@ -200,11 +209,13 @@ const MedicalChat = () => {
         let translatedResponse = aiResponseText;
         if (detectedLanguage !== 'en' && autoTranslate) {
           try {
+            setIsTranslating(true);
             translatedResponse = await translateText({
               text: aiResponseText,
               targetLanguage: detectedLanguage,
               sourceLanguage: 'en'
             });
+            setIsTranslating(false);
           } catch (err) {
             console.error('Error translating AI response:', err);
             // Continue with original response if translation fails
@@ -230,7 +241,7 @@ const MedicalChat = () => {
         if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
           const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
         
-          // Fix: Update the toast to use the correct format for sonner
+          // Use the correct format for sonner toast
           toast(`Language detected: ${detectedLangName}`, {
             action: {
               label: "Switch",
@@ -240,13 +251,17 @@ const MedicalChat = () => {
         }
       } catch (error) {
         console.error('Error getting AI response:', error);
-        toast.error('Failed to get response from AI. Please check your OpenAI API key.');
+        toast('Failed to get response from AI. Please check your OpenAI API key.', {
+          variant: "destructive"
+        });
         setIsSending(false);
       }
     } catch (err) {
       console.error('Error in message handling:', err);
       setIsSending(false);
-      toast.error('There was an error processing your message.');
+      toast('There was an error processing your message.', {
+        variant: "destructive"
+      });
     }
   };
 
@@ -278,7 +293,9 @@ const MedicalChat = () => {
       
       window.speechSynthesis.speak(utterance);
     } else {
-      toast.error("Your browser does not support text-to-speech");
+      toast("Your browser does not support text-to-speech", {
+        variant: "destructive"
+      });
     }
   };
 
@@ -329,13 +346,17 @@ const MedicalChat = () => {
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8 flex flex-col">
-        <Button
-          variant="outline"
-          className="mb-6 self-start"
-          onClick={() => navigate("/")}
-        >
-          &larr; Back to Home
-        </Button>
+        <div className="flex justify-between items-center mb-6">
+          <Button
+            variant="outline"
+            className="self-start"
+            onClick={() => navigate("/")}
+          >
+            &larr; Back to Home
+          </Button>
+          
+          <ApiKeySettings />
+        </div>
         
         <h2 className="text-3xl font-bold mb-6 text-healthcare-700 dark:text-healthcare-100">
           AI Medical Assistant Chat

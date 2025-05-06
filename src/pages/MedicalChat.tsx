@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,8 @@ import {
   translateText,
   getUserLanguage,
   setUserLanguage,
-  supportedLanguages 
+  supportedLanguages,
+  getOpenAIResponse
 } from "@/utils/translationService";
 
 interface Message {
@@ -147,9 +149,7 @@ const MedicalChat = () => {
       recognitionRef.current?.stop();
     } else {
       setNewMessage("");
-      toast.info("Listening...", {
-        description: `Speak in ${supportedLanguages.find(l => l.code === selectedLanguage)?.name}`
-      });
+      toast.info("Listening...");
       recognitionRef.current?.start();
       setIsListening(true);
     }
@@ -193,9 +193,9 @@ const MedicalChat = () => {
         }
       }
       
-      // Simulate AI response after a short delay
-      setTimeout(async () => {
-        const aiResponseText = getAIResponse(messageForAI);
+      // Get AI response from OpenAI
+      try {
+        const aiResponseText = await getOpenAIResponse(messageForAI);
         
         // Translate AI response if needed
         let translatedResponse = aiResponseText;
@@ -231,7 +231,6 @@ const MedicalChat = () => {
         if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
           const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
           
-          // Fix: Use proper toast API structure without 'title' property
           toast({
             description: `Language detected: ${detectedLangName}. Would you like to switch?`,
             action: {
@@ -240,26 +239,15 @@ const MedicalChat = () => {
             },
           });
         }
-      }, 1000);
-      
+      } catch (error) {
+        console.error('Error getting AI response:', error);
+        toast.error('Failed to get response from AI. Please check your OpenAI API key.');
+        setIsSending(false);
+      }
     } catch (err) {
       console.error('Error in message handling:', err);
       setIsSending(false);
       toast.error('There was an error processing your message.');
-    }
-  };
-  
-  const getAIResponse = (userMessage: string): string => {
-    const userMessageLower = userMessage.toLowerCase();
-    
-    if (userMessageLower.includes("headache")) {
-      return "Headaches can have many causes including stress, dehydration, or lack of sleep. If you're experiencing severe or persistent headaches, it's best to consult a healthcare professional. In the meantime, make sure you're staying hydrated and getting adequate rest.";
-    } else if (userMessageLower.includes("fever")) {
-      return "A fever is often a sign that your body is fighting an infection. If your temperature is above 100.4°F (38°C) or if the fever persists for more than three days, please seek medical attention. Rest and drink plenty of fluids.";
-    } else if (userMessageLower.includes("allergy") || userMessageLower.includes("allergic")) {
-      return "Allergic reactions can range from mild to severe. Common treatments include antihistamines and avoiding allergens. If you're experiencing severe symptoms like difficulty breathing, seek emergency medical help immediately.";
-    } else {
-      return "I understand your concern. While I can provide general information, I recommend consulting a healthcare professional for personalized medical advice. Is there anything specific you'd like to know more about?";
     }
   };
 

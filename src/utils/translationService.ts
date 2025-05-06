@@ -1,3 +1,4 @@
+
 interface TranslateOptions {
   text: string;
   targetLanguage: string;
@@ -109,9 +110,62 @@ function getGoogleApiKey(): string {
   return apiKey;
 }
 
+// Function to get OpenAI API key from localStorage
+export function getOpenAIApiKey(): string {
+  const apiKey = localStorage.getItem('OPENAI_API_KEY');
+  if (!apiKey) {
+    throw new Error('OpenAI API key not found. Please set it in the settings.');
+  }
+  return apiKey;
+}
+
 // Save API key to localStorage
 export function setGoogleApiKey(apiKey: string): void {
   localStorage.setItem('GOOGLE_TRANSLATE_API_KEY', apiKey);
+}
+
+// Save OpenAI API key to localStorage
+export function setOpenAIApiKey(apiKey: string): void {
+  localStorage.setItem('OPENAI_API_KEY', apiKey);
+}
+
+// Function to interact with OpenAI
+export async function getOpenAIResponse(message: string): Promise<string> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getOpenAIApiKey()}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful medical assistant providing concise, accurate information. Always clarify that you\'re not a doctor and serious symptoms require medical attention.'
+          },
+          {
+            role: 'user',
+            content: message
+          }
+        ],
+        max_tokens: 500
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('OpenAI error:', data.error);
+      return "I'm sorry, I encountered an error processing your question. Please try again.";
+    }
+    
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Error calling OpenAI:', error);
+    return "I'm sorry, I encountered an error processing your question. Please try again.";
+  }
 }
 
 // Get user's preferred language

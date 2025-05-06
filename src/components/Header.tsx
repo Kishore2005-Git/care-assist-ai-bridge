@@ -98,8 +98,8 @@ export function Header() {
                         className="flex items-center gap-3 p-3 rounded-lg hover:bg-healthcare-50 dark:hover:bg-healthcare-700 transition-colors"
                         onClick={() => setSidebarOpen(false)}
                       >
-                        <item.icon className="h-5 w-5 text-healthcare-500" />
-                        <span>{item.label}</span>
+                        <item.icon className="h-6 w-6 min-w-6 text-healthcare-500" />
+                        <span className="text-sm">{item.label}</span>
                       </Link>
                     ))}
                   </nav>
@@ -121,15 +121,17 @@ export function Header() {
               {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
             
-            <div className="mt-12 space-y-2 p-2">
+            <div className="mt-12 space-y-1 p-2">
               {navItems.map((item) => (
                 <Link 
                   key={item.route}
                   to={item.route} 
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-healthcare-50 dark:hover:bg-healthcare-700 transition-colors"
                 >
-                  <item.icon className="h-5 w-5 text-healthcare-500" />
-                  <span className={`transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+                  <div className="flex items-center justify-center w-6 h-6 min-w-6">
+                    <item.icon className="h-6 w-6 text-healthcare-500" />
+                  </div>
+                  <span className={`text-sm whitespace-nowrap transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
                     {item.label}
                   </span>
                 </Link>

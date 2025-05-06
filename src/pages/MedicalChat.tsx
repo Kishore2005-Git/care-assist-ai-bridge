@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -84,8 +83,7 @@ const MedicalChat = () => {
     // Check if browser supports speech recognition
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast("Your browser does not support speech recognition", {
-        description: "Please try using a different browser like Chrome.",
-        variant: "destructive",
+        description: "Please try using a different browser like Chrome."
       });
       return;
     }
@@ -132,9 +130,7 @@ const MedicalChat = () => {
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         setIsListening(false);
-        toast(`Speech recognition error: ${event.error}`, {
-          variant: "destructive"
-        });
+        toast.error(`Speech recognition error: ${event.error}`);
       };
     }
 
@@ -251,17 +247,13 @@ const MedicalChat = () => {
         }
       } catch (error) {
         console.error('Error getting AI response:', error);
-        toast('Failed to get response from AI. Please check your OpenAI API key.', {
-          variant: "destructive"
-        });
+        toast.error('Failed to get response from AI. Please check your OpenAI API key.');
         setIsSending(false);
       }
     } catch (err) {
       console.error('Error in message handling:', err);
       setIsSending(false);
-      toast('There was an error processing your message.', {
-        variant: "destructive"
-      });
+      toast.error('There was an error processing your message.');
     }
   };
 
@@ -293,9 +285,7 @@ const MedicalChat = () => {
       
       window.speechSynthesis.speak(utterance);
     } else {
-      toast("Your browser does not support text-to-speech", {
-        variant: "destructive"
-      });
+      toast.error("Your browser does not support text-to-speech");
     }
   };
 

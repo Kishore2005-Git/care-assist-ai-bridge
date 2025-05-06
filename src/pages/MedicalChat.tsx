@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -231,9 +230,10 @@ const MedicalChat = () => {
         // If we detected a different language than selected, offer to switch
         if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
           const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
+          
+          // Fix: Use proper toast API structure without 'title' property
           toast({
-            title: "Language detected",
-            description: `Would you like to switch to ${detectedLangName}?`,
+            description: `Language detected: ${detectedLangName}. Would you like to switch?`,
             action: {
               label: "Switch",
               onClick: () => handleLanguageChange(detectedLanguage),

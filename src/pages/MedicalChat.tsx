@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -230,9 +229,9 @@ const MedicalChat = () => {
         // If we detected a different language than selected, offer to switch
         if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
           const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
-          
-          toast({
-            description: `Language detected: ${detectedLangName}. Would you like to switch?`,
+        
+          // Fix: Update the toast to use the correct format for sonner
+          toast(`Language detected: ${detectedLangName}`, {
             action: {
               label: "Switch",
               onClick: () => handleLanguageChange(detectedLanguage),

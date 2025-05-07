@@ -10,7 +10,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { 
   Activity, 
@@ -21,11 +20,7 @@ import {
   Heart 
 } from "lucide-react";
 
-interface SidebarProps {
-  isCollapsed: boolean;
-}
-
-export function AppSidebar({ isCollapsed }: SidebarProps) {
+export function AppSidebar() {
   const navigate = useNavigate();
 
   const features = [
@@ -72,7 +67,6 @@ export function AppSidebar({ isCollapsed }: SidebarProps) {
 
   return (
     <Sidebar
-      collapsible={isCollapsed ? "icon" : "none"}
       variant="sidebar"
       className="border-r border-border"
     >
@@ -96,9 +90,7 @@ export function AppSidebar({ isCollapsed }: SidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="px-2 py-4">
-        <SidebarTrigger className="mx-auto" />
-      </SidebarFooter>
+      <SidebarFooter className="px-2 py-4" />
     </Sidebar>
   );
 }

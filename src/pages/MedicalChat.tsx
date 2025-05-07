@@ -1,8 +1,9 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
-import { MessageCircle, Mic, Send, Volume2, Loader, Globe } from "lucide-react";
+import { MessageCircle, Mic, Send, Volume2, Loader, Globe, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
@@ -22,6 +23,13 @@ import {
   getOpenAIResponse
 } from "@/utils/translationService";
 import { ApiKeySettings } from "@/components/ApiKeySettings";
+import {
+  useSymptomDetection,
+  generateDiseaseResponse,
+  generateGeneralResponse,
+  Symptom,
+  Disease
+} from "@/utils/symptomDetectionService";
 
 interface Message {
   id: number;
@@ -29,6 +37,8 @@ interface Message {
   originalText?: string;
   sender: "user" | "ai";
   timestamp: Date;
+  detectedSymptoms?: Symptom[];
+  possibleDiseases?: Disease[];
 }
 
 const MedicalChat = () => {
@@ -40,14 +50,18 @@ const MedicalChat = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [autoTranslate, setAutoTranslate] = useState(true);
+  const [useSymptomModel, setUseSymptomModel] = useState(true);
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   
+  // Get the symptom detection hook
+  const { analyzeText, analyzing } = useSymptomDetection();
+  
   // Initialize with translated welcome message
   useEffect(() => {
     const initializeChat = async () => {
-      const welcomeMessage = "Hello! I'm your AI medical assistant. How can I help you today?";
+      const welcomeMessage = "Hello! I'm your AI medical assistant with integrated symptom detection capabilities. How can I help you today?";
       
       // Only translate if not English and auto-translate is on
       let translatedText = welcomeMessage;
@@ -197,59 +211,93 @@ const MedicalChat = () => {
         }
       }
       
-      // Get AI response from OpenAI
-      try {
-        const aiResponseText = await getOpenAIResponse(messageForAI);
+      // Analyze symptoms using our symptom detection model if enabled
+      let aiResponseText = '';
+      let detectedSymptoms: Symptom[] = [];
+      let possibleDiseases: Disease[] = [];
+      
+      if (useSymptomModel) {
+        const analysis = await analyzeText(messageForAI);
+        detectedSymptoms = analysis.symptoms;
+        possibleDiseases = analysis.diseases;
         
-        // Translate AI response if needed
-        let translatedResponse = aiResponseText;
-        if (detectedLanguage !== 'en' && autoTranslate) {
-          try {
-            setIsTranslating(true);
-            translatedResponse = await translateText({
-              text: aiResponseText,
-              targetLanguage: detectedLanguage,
-              sourceLanguage: 'en'
-            });
-            setIsTranslating(false);
-          } catch (err) {
-            console.error('Error translating AI response:', err);
-            // Continue with original response if translation fails
-            translatedResponse = aiResponseText;
-          }
+        // Generate response based on detected diseases
+        if (possibleDiseases.length > 0) {
+          aiResponseText = generateDiseaseResponse(possibleDiseases[0], detectedLanguage);
+          
+          // If our model generated a response, we'll still get an OpenAI response too
+          // for additional information, but we'll mark that we used the model
+          const openAIResponse = await getOpenAIResponse(
+            `${messageForAI}\n\nAdditional information: The user likely has ${possibleDiseases[0].name}.`
+          );
+          aiResponseText += "\n\n" + openAIResponse;
+        } else if (detectedSymptoms.length > 0) {
+          aiResponseText = generateGeneralResponse(detectedSymptoms);
+          
+          // Get additional information from OpenAI
+          const openAIResponse = await getOpenAIResponse(
+            `${messageForAI}\n\nDetected symptoms: ${detectedSymptoms.map(s => s.name).join(', ')}`
+          );
+          aiResponseText += "\n\n" + openAIResponse;
+        } else {
+          // No specific symptoms detected, use OpenAI
+          aiResponseText = await getOpenAIResponse(messageForAI);
         }
-        
-        const aiResponse: Message = {
-          id: Date.now() + 1,
-          text: autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText,
-          originalText: autoTranslate && detectedLanguage !== 'en' ? aiResponseText : undefined,
-          sender: "ai",
-          timestamp: new Date(),
-        };
-        
-        setMessages((prev) => [...prev, aiResponse]);
-        setIsSending(false);
-        
-        // Read AI response aloud
-        speakText(autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText);
-        
-        // If we detected a different language than selected, offer to switch
-        if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
-          const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
-        
-          // Use the correct format for sonner toast
-          toast(`Language detected: ${detectedLangName}`, {
-            action: {
-              label: "Switch",
-              onClick: () => handleLanguageChange(detectedLanguage),
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Error getting AI response:', error);
-        toast.error('Failed to get response from AI. Please check your OpenAI API key.');
-        setIsSending(false);
+      } else {
+        // Use only OpenAI for response
+        aiResponseText = await getOpenAIResponse(messageForAI);
       }
+      
+      // Translate AI response if needed
+      let translatedResponse = aiResponseText;
+      if (detectedLanguage !== 'en' && autoTranslate) {
+        try {
+          setIsTranslating(true);
+          translatedResponse = await translateText({
+            text: aiResponseText,
+            targetLanguage: detectedLanguage,
+            sourceLanguage: 'en'
+          });
+          setIsTranslating(false);
+        } catch (err) {
+          console.error('Error translating AI response:', err);
+          // Continue with original response if translation fails
+          translatedResponse = aiResponseText;
+        }
+      }
+      
+      const aiResponse: Message = {
+        id: Date.now() + 1,
+        text: autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText,
+        originalText: autoTranslate && detectedLanguage !== 'en' ? aiResponseText : undefined,
+        sender: "ai",
+        timestamp: new Date(),
+        detectedSymptoms: useSymptomModel ? detectedSymptoms : undefined,
+        possibleDiseases: useSymptomModel ? possibleDiseases : undefined
+      };
+      
+      setMessages((prev) => [...prev, aiResponse]);
+      setIsSending(false);
+      
+      // Read AI response aloud
+      speakText(autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText);
+      
+      // If we detected a different language than selected, offer to switch
+      if (detectedLanguage !== selectedLanguage && supportedLanguages.some(lang => lang.code === detectedLanguage)) {
+        const detectedLangName = supportedLanguages.find(l => l.code === detectedLanguage)?.name;
+      
+        // Use the correct format for sonner toast
+        toast(`Language detected: ${detectedLangName}`, {
+          action: {
+            label: "Switch",
+            onClick: () => handleLanguageChange(detectedLanguage),
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      toast.error('Failed to get response from AI. Please check your OpenAI API key.');
+      setIsSending(false);
     } catch (err) {
       console.error('Error in message handling:', err);
       setIsSending(false);
@@ -331,6 +379,15 @@ const MedicalChat = () => {
     );
   };
   
+  // Toggle symptom detection model
+  const toggleSymptomModel = () => {
+    setUseSymptomModel(!useSymptomModel);
+    toast.info(useSymptomModel ?
+      "Symptom detection disabled. Using only OpenAI for responses." :
+      "Symptom detection enabled. Responses will include specific medical information when possible."
+    );
+  };
+  
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -378,10 +435,26 @@ const MedicalChat = () => {
             {autoTranslate ? "Auto-Translate: ON" : "Auto-Translate: OFF"}
           </Button>
           
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={toggleSymptomModel}
+            className={useSymptomModel ? "bg-healthcare-100 dark:bg-healthcare-800" : ""}
+          >
+            {useSymptomModel ? "Symptom Detection: ON" : "Symptom Detection: OFF"}
+          </Button>
+          
           {isTranslating && (
             <div className="flex items-center text-sm text-healthcare-500">
               <Loader className="h-4 w-4 mr-1 animate-spin" />
               Translating...
+            </div>
+          )}
+          
+          {analyzing && (
+            <div className="flex items-center text-sm text-healthcare-500">
+              <Loader className="h-4 w-4 mr-1 animate-spin" />
+              Analyzing symptoms...
             </div>
           )}
         </div>
@@ -411,13 +484,56 @@ const MedicalChat = () => {
                         <span className="ml-2 font-medium">Medical Assistant</span>
                       </div>
                     )}
-                    <p>{message.text}</p>
+                    <p className="whitespace-pre-line">{message.text}</p>
+                    
+                    {/* Display detected symptoms and diseases if available */}
+                    {message.sender === "ai" && message.detectedSymptoms && message.detectedSymptoms.length > 0 && (
+                      <div className="mt-3 p-2 bg-healthcare-50 dark:bg-healthcare-700 rounded-md">
+                        <p className="text-xs font-medium mb-1">Detected Symptoms:</p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {message.detectedSymptoms.map((symptom) => (
+                            <span 
+                              key={symptom.id}
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-healthcare-100 dark:bg-healthcare-600 text-healthcare-800 dark:text-healthcare-100"
+                            >
+                              {symptom.name}
+                            </span>
+                          ))}
+                        </div>
+                        
+                        {message.possibleDiseases && message.possibleDiseases.length > 0 && (
+                          <>
+                            <p className="text-xs font-medium mb-1">Possible Conditions:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {message.possibleDiseases.map((disease) => (
+                                <span 
+                                  key={disease.id}
+                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs
+                                    ${disease.severity === 'high' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100' :
+                                      disease.severity === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-100' :
+                                      'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100'}`}
+                                >
+                                  {disease.name}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        
+                        <div className="mt-2 flex items-center">
+                          <AlertTriangle className="h-3 w-3 text-amber-500 mr-1" />
+                          <p className="text-xs text-amber-500">
+                            This is not a medical diagnosis. Always consult a healthcare professional.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Show original text if translated */}
                     {message.originalText && autoTranslate && (
                       <div className="mt-2 text-xs opacity-70 border-t pt-1">
                         <p className="font-semibold">Original:</p>
-                        <p>{message.originalText}</p>
+                        <p className="whitespace-pre-line">{message.originalText}</p>
                       </div>
                     )}
                     

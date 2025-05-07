@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VoiceSymptomChecker from "./pages/VoiceSymptomChecker";
@@ -25,15 +26,15 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/voice-symptom-checker" element={<VoiceSymptomChecker />} />
-            <Route path="/gesture-control" element={<GestureControl />} />
-            <Route path="/medical-chat" element={<MedicalChat />} />
-            <Route path="/video-consultation" element={<VideoConsultation />} />
-            <Route path="/medicine-reminder" element={<MedicineReminder />} />
-            <Route path="/health-fitness" element={<HealthFitness />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/" element={<Layout><Index /></Layout>} />
+            <Route path="/voice-symptom-checker" element={<Layout><VoiceSymptomChecker /></Layout>} />
+            <Route path="/gesture-control" element={<Layout><GestureControl /></Layout>} />
+            <Route path="/medical-chat" element={<Layout><MedicalChat /></Layout>} />
+            <Route path="/video-consultation" element={<Layout><VideoConsultation /></Layout>} />
+            <Route path="/medicine-reminder" element={<Layout><MedicineReminder /></Layout>} />
+            <Route path="/health-fitness" element={<Layout><HealthFitness /></Layout>} />
+            <Route path="/auth" element={<Layout><Auth /></Layout>} />
+            <Route path="*" element={<Layout><NotFound /></Layout>} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

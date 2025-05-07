@@ -1,6 +1,5 @@
 
 import { useToast } from "@/components/ui/use-toast";
-import { Header } from "@/components/Header";
 import { HealthMetrics } from "@/components/HealthMetrics";
 import { RecentActivities } from "@/components/RecentActivities";
 import { EmergencyCall } from "@/components/EmergencyCall";
@@ -13,12 +12,8 @@ import { ApiKeySettings } from "@/components/ApiKeySettings";
 
 const Index = () => {
   const { toast: uiToast } = useToast();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isVideoCallLoading, setIsVideoCallLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Adjust main content based on sidebar state for desktop
-  const mainContentClass = !sidebarOpen ? "md:ml-16" : "md:ml-64";
   
   const handleVideoCallClick = () => {
     setIsVideoCallLoading(true);
@@ -33,9 +28,7 @@ const Index = () => {
   
   return (
     <div className="flex flex-col min-h-screen">
-      <Header />
-      
-      <main className={`flex-1 container mx-auto px-4 py-8 transition-all duration-300 ${mainContentClass}`}>
+      <main className="flex-1 container mx-auto px-4 py-8 transition-all duration-300">
         <div className="flex justify-end mb-4">
           <ApiKeySettings />
         </div>
@@ -85,7 +78,7 @@ const Index = () => {
           <RecentActivities />
         </section>
         
-        <section>
+        <section id="emergency-call">
           <EmergencyCall />
         </section>
       </main>

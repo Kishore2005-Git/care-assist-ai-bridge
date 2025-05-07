@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -277,7 +276,6 @@ const MedicalChat = () => {
       };
       
       setMessages((prev) => [...prev, aiResponse]);
-      setIsSending(false);
       
       // Read AI response aloud
       speakText(autoTranslate && detectedLanguage !== 'en' ? translatedResponse : aiResponseText);
@@ -297,11 +295,8 @@ const MedicalChat = () => {
     } catch (error) {
       console.error('Error getting AI response:', error);
       toast.error('Failed to get response from AI. Please check your OpenAI API key.');
+    } finally {
       setIsSending(false);
-    } catch (err) {
-      console.error('Error in message handling:', err);
-      setIsSending(false);
-      toast.error('There was an error processing your message.');
     }
   };
 
